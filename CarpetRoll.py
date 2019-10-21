@@ -10,6 +10,7 @@ class CarpetRoll(ommpx.MPxDeformerNode):
 
     TYPE_NAME = "CarpetRoll"
     TYPE_ID = om.MTypeId(0x0007F7FC)
+    CarpetMesh = om.MObject()
 
     def __init__(self):
         ommpx.MPxDeformerNode.__init__(self)
@@ -17,31 +18,42 @@ class CarpetRoll(ommpx.MPxDeformerNode):
 
     def deform(self, data_block, geo_iter, matrix, multi_index):
         geo_iter.reset()
-        selection = om.MSelectionList()
-        om.MGlobal.getActiveSelectionList(selection)
-        m_iter = om.MItSelectionList(selection, om.MFn.kTransform)
+        mesh = self.get_input_mesh(data_block, multi_index)
+        if mesh is None:
+            return om.MGlobal.displayWarning("Mesh node not found")
+        depend_node = om.MFnDependencyNode(mesh.object())
+        poly_plug = depend_node.findPlug("inMesh")
+        # print (mdag.fullPathName())
+        # polymesh = om.MFnMesh(in_mesh)
+        # connect_plug = om.MPlugArray()
+        # poly_plug.connectedTo(connect_plug, True, False)
+        # src_plug = connect_plug[0]
+        # poly_planer_node = src_plug.node()
+        # poly_plane_fn = om.MFnDependencyNode(poly_planer_node)
+        # om.MGlobal.displayInfo(poly_plane_fn.name())
 
-        while not m_iter.isDone():
-            mobject = om.MObject()
-            dp = om.MDagPath()
-            m_iter.getDagPath(dp, mobject)
-            unsigned_int_ptr = om.uIntPtr()
-            dp.numberOfShapesDirectlyBelow(unsigned_int_ptr)
-            if unsigned_int_ptr.value() < 2:
-                m_iter.next()
-                continue
-            dp.extendToShapeDirectlyBelow(1)
-            polymesh = om.MFnDependencyNode(dp.node())
-            poly_plug = polymesh.findPlug("inMesh")
-            connect_plug = om.MPlugArray()
-            poly_plug.connectedTo(connect_plug, True, False)
-            src_plug = connect_plug[0]
-            poly_planer_node = src_plug.node()
-            poly_plane_fn = om.MFnDependencyNode(poly_planer_node)
-            om.MGlobal.displayInfo(poly_plane_fn.name())
-            self.subd_width = poly_plane_fn.findPlug("subdivisionsWidth").asInt()
-            self.subd_height = poly_plane_fn.findPlug("subdivisionsHeight").asInt()
-            m_iter.next()
+        # return
+        # while not m_iter.isDone():
+        #     mobject = om.MObject()
+        #     dp = om.MDagPath()
+        #     m_iter.getDagPath(dp, mobject)
+        #     unsigned_int_ptr = om.uIntPtr()
+        #     dp.numberOfShapesDirectlyBelow(unsigned_int_ptr)
+        #     if unsigned_int_ptr.value() < 2:
+        #         m_iter.next()
+        #         continue
+        #     dp.extendToShapeDirectlyBelow(1)
+        #     polymesh = om.MFnDependencyNode(dp.node())
+        #     poly_plug = polymesh.findPlug("inMesh")
+        #     connect_plug = om.MPlugArray()
+        #     poly_plug.connectedTo(connect_plug, True, False)
+        #     src_plug = connect_plug[0]
+        #     poly_planer_node = src_plug.node()
+        #     poly_plane_fn = om.MFnDependencyNode(poly_planer_node)
+        #     om.MGlobal.displayInfo(poly_plane_fn.name())
+        #     self.subd_width = poly_plane_fn.findPlug("subdivisionsWidth").asInt()
+        #     self.subd_height = poly_plane_fn.findPlug("subdivisionsHeight").asInt()
+        #     m_iter.next()
 
         last_20_points = {}
         while not geo_iter.isDone():
@@ -54,6 +66,22 @@ class CarpetRoll(ommpx.MPxDeformerNode):
                 geo_iter.setPosition(pt)
                 last_20_points = dict()
             geo_iter.next()
+
+    def get_input_mesh(self, data, geom_index):
+
+        '''Return input mesh for geometry input index
+        '''
+        input_attr_handle = data.outputArrayValue(self.input)
+        input_attr_handle.jumpToElement(geom_index)
+        input_geo = om.MObject()
+        geom_handle = input_attr_handle.outputValue().child(self.inputGeom)
+        input_geom = geom_handle.asMesh()
+        if input_geom.isNull():
+            print("This geo is null")
+            return None
+        mesh = om.MFnMesh(input_geom)
+        return mesh
+
 
     @classmethod
     def creator(cls):
